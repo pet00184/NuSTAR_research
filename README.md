@@ -1,2 +1,2 @@
 # NuSTAR_research
-Automated Centroid Program to Co-Align Nustar and AIA solar data
+Automating a program to Co-Align Nustar solar data to AIA data
