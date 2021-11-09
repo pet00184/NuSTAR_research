@@ -2,6 +2,7 @@
 
 import datetime
 import sunpy.map
+import numpy as np
 import astropy.units as u
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches # for rectangles in Sunpy V3.1.0, I can't get draw_rectangle() to work
@@ -13,6 +14,7 @@ from astropy.wcs import WCS
 from sunpy.coordinates import Helioprojective, RotatedSunFrame, transform_with_sun_center
 from sunpy.net import Fido, attrs as a
 from aiapy.calibrate import register, update_pointing, normalize_exposure
+from matplotlib.ticker import (MultipleLocator, AutoMinorLocator)
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -22,36 +24,63 @@ warnings.filterwarnings("ignore")
 X_LABEL = 'X (arcseconds)'
 Y_LABEL = 'Y (arcseconds)'
 AIA_WAVELENGTH = 94 # Units of angstroms
-STEREO_MIN_WAVELENGTH = 171 # Units of angstroms
-STEREO_MAX_WAVELENGTH = 211 # Units of angstroms
+STEREO_MIN_WAVELENGTH = 171  # Units of angstroms
+STEREO_MAX_WAVELENGTH = 195 # Units of angstroms
 
+# Define the universal axes limits to be used by all plots.
+# In units of arcseconds.
+X_MIN = -1100
+Y_MIN = -1100
+X_MAX = 1100
+Y_MAX = 1100
+
+
+def add_minor_ticks(ax):
+    """
+    Adds minor ticks to the plot on the provided axes.
+    """
+
+    (ax.coords[0]).display_minor_ticks(True)
+    (ax.coords[0]).set_minor_frequency(5)
+    (ax.coords[1]).display_minor_ticks(True)
+    (ax.coords[1]).set_minor_frequency(5)
+    ax.tick_params(which='minor', length=1.5)
+    
 
 def most_recent_map(_map):
-    
+
+    current = datetime.datetime.now()
+    current_date = current.strftime("%Y-%m-%dT%H:%M:%S")
+
     if _map.lower()=="aia":
         info = (a.Instrument("aia") & a.Wavelength(AIA_WAVELENGTH*u.angstrom))
-        look_back = {"days":2}
+        look_back = {"minutes":30}
     elif _map.lower()=="stereo":
         info = (a.Source('STEREO_A') & a.Instrument("EUVI") & \
             a.Wavelength(STEREO_MIN_WAVELENGTH*u.angstrom, STEREO_MAX_WAVELENGTH*u.angstrom)) 
-        look_back = {"weeks":4}
+        look_back = {"days":5}
     else:
         print("Don't know what to do! Please set _map=\"aia\" or \"stereo\".")
         
-    current_date = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    
-    past = datetime.datetime.now()-datetime.timedelta(**look_back)
+    past = current-datetime.timedelta(**look_back)
     past_date = past.strftime("%Y-%m-%dT%H:%M:%S")
-
     startt = str(past_date)
-    endt= str(current_date)
+    endt = str(current_date)
 
     result = Fido.search(a.Time(startt, endt), info)
+    # result = Fido.search(info)
     
     file_download = Fido.fetch(result[0, -1], site='ROB')
-    aiamap = sunpy.map.Map(file_download[0])
+    # file_download = Fido.fetch(result[0,-1])
+
+    data_map = sunpy.map.Map(file_download[-1])
+
+    # Set the axes limits.
+    bl = SkyCoord(X_MIN*u.arcsec, Y_MIN*u.arcsec, frame=data_map.coordinate_frame)
+    tr = SkyCoord(X_MAX*u.arcsec, Y_MAX*u.arcsec, frame=data_map.coordinate_frame)
+    data_map = data_map.submap(bottom_left=bl, top_right=tr)
     
-    return(aiamap)
+    return(data_map)
 
 
 def project_map(in_map, future_time):
@@ -86,16 +115,24 @@ def project_map(in_map, future_time):
     out_warp = sunpy.map.Map(arr, out_wcs)
     out_warp.plot_settings = in_map.plot_settings
 
+    # Set the axes limits.
+    bl = SkyCoord(X_MIN*u.arcsec, Y_MIN*u.arcsec, frame=out_warp.coordinate_frame)
+    tr = SkyCoord(X_MAX*u.arcsec, Y_MAX*u.arcsec, frame=out_warp.coordinate_frame)
+    
+    out_warp = out_warp.submap(bottom_left=bl, top_right=tr)
+
     return out_warp
 
 
-def draw_nustar_fov(in_map, center_x, center_y, layers=[-100, 0, 100], colors='red'):
+def draw_nustar_fov(in_map, ax, center_x, center_y, layers=[-100, 0, 100], colors='red'):
     """
     Draw squares representing NuSTAR's field of view on the current map.
     
     By default, three squares are drawn: one that is equal
     to the 12x12 arcminute FOV and two with side lengths
     of +-100 arcseconds from the actual side lengths.
+
+    Adds a text box describing the boxes.
     
     Parameters
     ----------
@@ -134,11 +171,34 @@ def draw_nustar_fov(in_map, center_x, center_y, layers=[-100, 0, 100], colors='r
                                  height=(FOV_SIDE_LENGTH+2*diff)*u.arcsec,
                                  color=colors[i])
 
+    # Add text on plot.
+    # Determine the position of the text box.
+    ax_xlim = ax.get_xlim()
+    ax_ylim = ax.get_ylim()
+    text_x = ax_xlim[1] * (center_x-X_MIN)/(X_MAX-X_MIN)
+    text_y = ax_ylim[1] * (center_y-Y_MIN-600)/(Y_MAX-Y_MIN)
+    
+    # To make the text dynamic, we need to format
+    # the text string based on the layers list.
+    layers_copy = layers.copy()
+    if 0 in layers_copy:
+        layers_copy.remove(0)
+
+    # Convert the list of int to list of str, add arcsecond unit symbols,
+    # and add '+' to positive numbers
+    list_of_strings = ['+'+str(x)+'\"' if x>0 else str(x)+'\"' for x in layers_copy]
+
+    # Format the string by removing the residual brackets and quotes.
+    layers_str = str(list_of_strings).replace('[','').replace(']','').replace('\'','')
+    text_str = 'Center: ('+str(center_x)+'\",'+str(center_y)+'\")'+'\nBoxes 12\', ' + layers_str
+    
+    # Add the text to the plot.
+    plt.text(text_x, text_y, text_str, color='red',
+             horizontalalignment='center', verticalalignment='center')
+
 
 def reprojection(obstime:str, center_x, center_y, layers):
     
-    # fig = plt.subplots(2, 2, figsize=(12,12))
-
     fig = plt.figure(figsize=(12, 12))
 
     # For AIA.
@@ -151,45 +211,64 @@ def reprojection(obstime:str, center_x, center_y, layers):
     ax1 = fig.add_subplot(2, 2, 1, projection=aiamap)
     aiamap.plot(cmap=reversed_aia_cmap, title=f"Original AIA Map\nAIA " + \
         str(AIA_WAVELENGTH) + f" {aiamap.date}")
+    aiamap.draw_limb(color='black')
+    ax1.tick_params(which='major', direction='in')
+    ax1.grid(False)
     ax1.set_xlabel(X_LABEL)
     ax1.set_ylabel(Y_LABEL)
+    add_minor_ticks(ax1)
     plt.colorbar(fraction=0.046, pad=0.04)
+    # plt.clim(10,np.max(aiamap.data))
 
     ax2 = fig.add_subplot(2, 2, 2, projection=projected_aiamap)
     projected_aiamap.plot(cmap=reversed_aia_cmap, title="Reprojected to an Earth Observer\nAIA " + \
         str(AIA_WAVELENGTH) + f" {projected_aiamap.date}")
+    projected_aiamap.draw_limb(color='black')
+    ax2.tick_params(which='major', direction='in')
+    ax2.grid(False)
     ax2.set_xlabel(X_LABEL)
     ax2.set_ylabel(Y_LABEL)
+    add_minor_ticks(ax2)
     plt.colorbar(fraction=0.046, pad=0.04)
 
-    draw_nustar_fov(projected_aiamap, center_x, center_y, layers)
+    draw_nustar_fov(projected_aiamap, ax2, center_x, center_y, layers)
+
 
     # For STEREO.
     stereomap = most_recent_map(_map="stereo")
     projected_stereomap = project_map(stereomap, obstime)
     print("Got STEREO-A map.")
 
-    reversed_stereo_cmap = (stereomap.cmap).reversed()
-
     ax3 = fig.add_subplot(2, 2, 3, projection=stereomap)
-    stereomap.plot(cmap=reversed_stereo_cmap, title=f"Original STEREO Map\nSTEREO " + \
+    stereomap.plot(title=f"Original STEREO Map\nSTEREO " + \
         str(STEREO_MIN_WAVELENGTH) + "-" + str(STEREO_MAX_WAVELENGTH) + f" {stereomap.date}")
+    stereomap.draw_limb(color='black')
+    ax3.tick_params(which='major', direction='in')
+    ax3.grid(False)
     ax3.set_xlabel(X_LABEL)
     ax3.set_ylabel(Y_LABEL)
+    add_minor_ticks(ax3)
     plt.colorbar(fraction=0.046, pad=0.04)
+    plt.set_cmap('YlGn')
 
     ax4 = fig.add_subplot(2, 2, 4, projection=projected_stereomap)
-    projected_stereomap.plot(cmap=reversed_stereo_cmap, title="Reprojected to an Earth Observer\nSTEREO " + \
+    projected_stereomap.plot(title="Reprojected to an Earth Observer\nSTEREO " + \
         str(STEREO_MIN_WAVELENGTH) + "-" + str(STEREO_MAX_WAVELENGTH) + f" {projected_stereomap.date}")
+    projected_stereomap.draw_limb(color='black')
+    ax4.tick_params(which='major', direction='in')
+    ax4.grid(False)
     ax4.set_xlabel(X_LABEL)
     ax4.set_ylabel(Y_LABEL)
+    add_minor_ticks(ax4)
     plt.colorbar(fraction=0.046, pad=0.04)
+    plt.set_cmap('YlGn')
 
-    draw_nustar_fov(projected_stereomap, center_x, center_y, layers)
+    draw_nustar_fov(projected_stereomap, ax4, center_x, center_y, layers)
 
     plt.savefig('aia_stereo_projection.jpg')
 
 
 if __name__ == '__main__':
+
     future_time = (datetime.datetime.now()+datetime.timedelta(days=4)).strftime("%Y-%m-%dT%H:%M:%S")
     reprojection(future_time, -300, -300, [-100, 0, 100])
