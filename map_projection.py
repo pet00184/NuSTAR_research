@@ -2,10 +2,8 @@
 
 import datetime
 import sunpy.map
-import numpy as np
 import astropy.units as u
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches # for rectangles in Sunpy V3.1.0, I can't get draw_rectangle() to work
 import nustar_pysolar # for solar to RA/Dec coordinate transform
 
 from reproject import reproject_interp
@@ -68,10 +66,7 @@ def most_recent_map(_map):
     endt = str(current_date)
 
     result = Fido.search(a.Time(startt, endt), info)
-    # result = Fido.search(info)
-    
     file_download = Fido.fetch(result[0, -1], site='ROB')
-    # file_download = Fido.fetch(result[0,-1])
 
     data_map = sunpy.map.Map(file_download[-1])
 
@@ -218,7 +213,6 @@ def reprojection(obstime:str, center_x, center_y, layers):
     ax1.set_ylabel(Y_LABEL)
     add_minor_ticks(ax1)
     plt.colorbar(fraction=0.046, pad=0.04)
-    # plt.clim(10,np.max(aiamap.data))
 
     ax2 = fig.add_subplot(2, 2, 2, projection=projected_aiamap)
     projected_aiamap.plot(cmap=reversed_aia_cmap, title="Reprojected to an Earth Observer\nAIA " + \
