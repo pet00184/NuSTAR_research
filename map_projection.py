@@ -191,4 +191,5 @@ def reprojection(obstime:str, center_x, center_y, layers):
 
 
 if __name__ == '__main__':
-    reprojection( '2021-11-10T12:00:00', -300, -300, [-100, 0, 100])
+    future_time = (datetime.datetime.now()+datetime.timedelta(days=4)).strftime("%Y-%m-%dT%H:%M:%S")
+    reprojection(future_time, -300, -300, [-100, 0, 100])
