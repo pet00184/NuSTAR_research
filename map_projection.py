@@ -226,9 +226,10 @@ def draw_nustar_fov(in_map, ax, center_x, center_y, layers=[-100, 0, 100], color
         # Determine the position of the text box.
         ax_xlim = ax.get_xlim()
         ax_ylim = ax.get_ylim()
-        text_x = ax_xlim[1] * (1-(center_x-X_MIN)/(X_MAX-X_MIN))
+        x_mid, y_mid = (X_MAX+X_MIN)/2, (Y_MAX+Y_MIN)/2
+        text_x = ax_xlim[1] * (1-(x_mid-X_MIN)/(X_MAX-X_MIN))
         # if the fov centre is in the lower half then put text in the top and vice versa
-        text_y = ax_ylim[1] * (center_y-Y_MIN-600)/(Y_MAX-Y_MIN) if center_y>=0 else ax_ylim[1] * (1-(center_y-Y_MIN-600)/(Y_MAX-Y_MIN))
+        text_y = ax_ylim[1] * (y_mid-Y_MIN-900)/(Y_MAX-Y_MIN) if center_y>=0 else ax_ylim[1] * (1-(y_mid-Y_MIN-900)/(Y_MAX-Y_MIN))
         
         # To make the text dynamic, we need to format
         # the text string based on the layers list.
