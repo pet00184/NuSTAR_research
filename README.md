@@ -5,8 +5,8 @@
 
 >Image projected to the 17th Nov. 2021:
 
-![Nov17](https://github.com/KriSun95/NuSTAR_research/blob/main/aia_stereo_projection_Nov_17.jpg)
+![Nov17](https://github.com/KriSun95/NuSTAR_research/blob/main/aia_stereo_projection_Nov_17_orbit1.jpg)
 
 >Image projected to the 19th Nov. 2021:
 
-![Nov19](https://github.com/KriSun95/NuSTAR_research/blob/main/aia_stereo_projection_Nov_19.jpg)
+![Nov19](https://github.com/KriSun95/NuSTAR_research/blob/main/aia_stereo_projection_Nov_19_orbit1.jpg)
