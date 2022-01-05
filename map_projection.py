@@ -5,7 +5,6 @@ import sunpy.map
 import astropy.units as u
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches # for rectangles in Sunpy V3.1.0, I can't get draw_rectangle() to work
-#import nustar_pysolar # for solar to RA/Dec coordinate transform
 import numpy as np
 
 from reproject import reproject_interp
@@ -337,6 +336,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0, markers=None
 
     reversed_aia_cmap = (aiamap.cmap).reversed()
 
+    # original AIA map
     ax1 = plt.subplot(2, 2, 1, projection=aiamap)
     aiamap.plot(cmap=reversed_aia_cmap, title=f"Original AIA Map\nAIA " + \
         str(AIA_WAVELENGTH) + f" {aiamap.date}")
@@ -348,6 +348,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0, markers=None
     add_minor_ticks(ax1)
     plt.colorbar(fraction=0.046, pad=0.04)
 
+    # projected AIA map
     ax2 = plt.subplot(2, 2, 2, projection=projected_aiamap)
     projected_aiamap.plot(cmap=reversed_aia_cmap, title="Reprojected to an Earth Observer\nAIA " + \
         str(AIA_WAVELENGTH) + f" {projected_aiamap.date}")
@@ -368,6 +369,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0, markers=None
 
     reversed_stereo_cmap = (stereomap.cmap).reversed()
 
+    # original STEREO map
     ax3 = plt.subplot(2, 2, 3, projection=stereomap)
     stereomap.plot(cmap=reversed_stereo_cmap, title=f"Original STEREO Map\nSTEREO " + \
         str(STEREO_MIN_WAVELENGTH) + "-" + str(STEREO_MAX_WAVELENGTH) + f" {stereomap.date}")
@@ -380,6 +382,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0, markers=None
     plt.colorbar(fraction=0.046, pad=0.04)
     plt.set_cmap('YlGn')
 
+    # projected STEREO map
     ax4 = plt.subplot(2, 2, 4, projection=projected_stereomap)
     projected_stereomap.plot(cmap=reversed_stereo_cmap, title="Reprojected to an Earth Observer\nSTEREO " + \
         str(STEREO_MIN_WAVELENGTH) + "-" + str(STEREO_MAX_WAVELENGTH) + f" {projected_stereomap.date}")
