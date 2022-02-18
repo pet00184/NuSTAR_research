@@ -5,7 +5,6 @@ import sunpy.map
 import astropy.units as u
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches # for rectangles in Sunpy V3.1.0, I can't get draw_rectangle() to work
-#import nustar_pysolar # for solar to RA/Dec coordinate transform
 import numpy as np
 
 from reproject import reproject_interp
@@ -181,6 +180,7 @@ def draw_nustar_fov(in_map, ax, center_x, center_y, layers=[-100, 0, 100], color
     
     FOV_SIDE_LENGTH = 12*60 # Units of arcseconds
 
+    rotate_str = ""
     for i, diff in enumerate(layers):
         if rotate==0:
             # Translate to bottom left corner of rectangle
@@ -192,7 +192,6 @@ def draw_nustar_fov(in_map, ax, center_x, center_y, layers=[-100, 0, 100], color
                                      width=(FOV_SIDE_LENGTH+2*diff)*u.arcsec,
                                      height=(FOV_SIDE_LENGTH+2*diff)*u.arcsec,
                                      color=colors[i])
-            rotate_str = ""
         else:
             # **kwargs dont get passed to matplotlib so not easy way to rotate, do it myself
             # get boxes in pixels, newer Sunpy doesn't allow draw_rectangle here
@@ -245,12 +244,66 @@ def draw_nustar_fov(in_map, ax, center_x, center_y, layers=[-100, 0, 100], color
         layers_str = str(list_of_strings).replace('[','').replace(']','').replace('\'','')
         text_str = 'Center: ('+str(center_x)+'\",'+str(center_y)+'\")'+'\nBoxes 12\', ' + layers_str +"\n"+ rotate_str
         
-        # Add the text to the plot.
-        plt.text(text_x, text_y, text_str, color='red',
-                 horizontalalignment='center', verticalalignment='center')
+        if len(layers)>0:
+            # Add the text to the plot.
+            plt.text(text_x, text_y, text_str, color='red',
+                     horizontalalignment='center', verticalalignment='center')
+
+def points_of_interest_marker(x, y, ax, frame):
+    """
+    Plots points of interest on a sunpy map.
+    
+    Parameters
+    ----------
+    x,y : list
+        List of the x and y coordinates of the points of interest.
+    ax : matplotlib.pyplot axes object
+        The axes to be plotted on.
+    frame : sunpy map
+        Coordinate frame being used.
+        
+    Returns
+    -------
+    None.
+    """
+    x_poi = x * u.arcsec # points of interest
+    y_poi = y * u.arcsec 
+    coords = SkyCoord(x_poi, y_poi, frame=frame.coordinate_frame)
+    p = ax.plot_coord(coords, 'x', color="r") # plot points of interest
+
+def plot_psp_loc(x, y, ax, frame):
+    """
+    Plots a square to represent PSP's location.
+    
+    Parameters
+    ----------
+    x,y : list
+        List of the x and y coordinates of the points of interest.
+    ax : matplotlib.pyplot axes object
+        The axes to be plotted on.
+    frame : sunpy map
+        Coordinate frame being used.
+        
+    Returns
+    -------
+    None.
+    """
+    x_poi = x * u.arcsec # points of interest
+    y_poi = y * u.arcsec 
+    coords = SkyCoord(x_poi, y_poi, frame=frame.coordinate_frame)
+    p = ax.plot_coord(coords, 's', color="grey") # plot points of interest
+
+    # Determine the position of the text box.
+    ax_xlim = ax.get_xlim()
+    ax_ylim = ax.get_ylim()
+    x_mid, y_mid = (X_MAX+X_MIN)/2, (Y_MAX+Y_MIN)/2
+    text_x = ax_xlim[1] * (x_mid-X_MIN+x)/(X_MAX-X_MIN)
+    text_y = ax_ylim[1] * (y_mid-Y_MIN+y)/(Y_MAX-Y_MIN) 
+    ax.text(text_x, text_y, "PSP", color='k',
+                     horizontalalignment='center', verticalalignment='top', size=8)
 
 
-def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
+def reprojection(obstime:str, center_x, center_y, layers, rotate=0, markers=None, psp_loc=None):
     """
     Creates plot of the AIA and STEREO plot of a specific time projected onto a future time.
     
@@ -264,6 +317,12 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
         The y position, in arcseconds, of the squares' center point.
     rotate : int or float
         Anti-clockwise rotation from Solar north for NuSTAR field of view.
+    markers : list
+        List of x coordinates and y coordinates to be marked on the map in arcsec. 
+        E.g., [[0,100], [-200,600]] would mark coord (0,-200) and (100,600).
+    psp_loc : list
+        X and y coordinates of PSP to be marked on the map in arcsec. 
+        E.g., [0,100].
         
     Returns
     -------
@@ -277,6 +336,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
 
     reversed_aia_cmap = (aiamap.cmap).reversed()
 
+    # original AIA map
     ax1 = plt.subplot(2, 2, 1, projection=aiamap)
     aiamap.plot(cmap=reversed_aia_cmap, title=f"Original AIA Map\nAIA " + \
         str(AIA_WAVELENGTH) + f" {aiamap.date}")
@@ -288,6 +348,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
     add_minor_ticks(ax1)
     plt.colorbar(fraction=0.046, pad=0.04)
 
+    # projected AIA map
     ax2 = plt.subplot(2, 2, 2, projection=projected_aiamap)
     projected_aiamap.plot(cmap=reversed_aia_cmap, title="Reprojected to an Earth Observer\nAIA " + \
         str(AIA_WAVELENGTH) + f" {projected_aiamap.date}")
@@ -308,6 +369,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
 
     reversed_stereo_cmap = (stereomap.cmap).reversed()
 
+    # original STEREO map
     ax3 = plt.subplot(2, 2, 3, projection=stereomap)
     stereomap.plot(cmap=reversed_stereo_cmap, title=f"Original STEREO Map\nSTEREO " + \
         str(STEREO_MIN_WAVELENGTH) + "-" + str(STEREO_MAX_WAVELENGTH) + f" {stereomap.date}")
@@ -320,6 +382,7 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
     plt.colorbar(fraction=0.046, pad=0.04)
     plt.set_cmap('YlGn')
 
+    # projected STEREO map
     ax4 = plt.subplot(2, 2, 4, projection=projected_stereomap)
     projected_stereomap.plot(cmap=reversed_stereo_cmap, title="Reprojected to an Earth Observer\nSTEREO " + \
         str(STEREO_MIN_WAVELENGTH) + "-" + str(STEREO_MAX_WAVELENGTH) + f" {projected_stereomap.date}")
@@ -333,6 +396,13 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0):
     plt.set_cmap('YlGn')
 
     draw_nustar_fov(projected_stereomap, ax4, center_x, center_y, layers, rotate=rotate, pixscale=u.Quantity(stereomap.scale).value[0])
+
+    if type(markers)!=type(None):
+        points_of_interest_marker(x=markers[0], y=markers[1], ax=ax2, frame=projected_aiamap)
+        points_of_interest_marker(x=markers[0], y=markers[1], ax=ax4, frame=projected_stereomap)
+    if type(psp_loc)!=type(None):
+        plot_psp_loc(*psp_loc, ax=ax2, frame=projected_aiamap)
+        plot_psp_loc(*psp_loc, ax=ax4, frame=projected_stereomap)
 
     plt.subplots_adjust(wspace=0.3, hspace=0.18)
 
