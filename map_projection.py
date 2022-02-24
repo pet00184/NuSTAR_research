@@ -271,6 +271,7 @@ def points_of_interest_marker(x, y, ax, frame):
     coords = SkyCoord(x_poi, y_poi, frame=frame.coordinate_frame)
     p = ax.plot_coord(coords, 'x', color="r") # plot points of interest
 
+
 def plot_psp_loc(x, y, ax, frame):
     """
     Plots a square to represent PSP's location.
@@ -401,13 +402,10 @@ def reprojection(obstime:str, center_x, center_y, layers, rotate=0, markers=None
         points_of_interest_marker(x=markers[0], y=markers[1], ax=ax2, frame=projected_aiamap)
         points_of_interest_marker(x=markers[0], y=markers[1], ax=ax4, frame=projected_stereomap)
     if type(psp_loc)!=type(None):
-        plot_psp_loc(*psp_loc, ax=ax2, frame=projected_aiamap)
-        plot_psp_loc(*psp_loc, ax=ax4, frame=projected_stereomap)
+        for coord in psp_loc:
+            plot_psp_loc(*coord, ax=ax2, frame=projected_aiamap)
+            plot_psp_loc(*coord, ax=ax4, frame=projected_stereomap)
 
     plt.subplots_adjust(wspace=0.3, hspace=0.18)
 
     return (ax1,ax2,ax3,ax4)
-
-
-if __name__ == '__main__':
-    reprojection( '2021-11-10T12:00:00', -300, -300, [-100, 0, 100])
